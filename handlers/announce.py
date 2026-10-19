@@ -2,6 +2,7 @@
 
 /setgroup            (in group, admin) — bind this group
 /announce <text>     (admin PM) — post to the bound group
+plain message        (admin PM) — also posted to the bound group, no command needed
 /autopin on|off      (admin: group or PM) — auto-pin announcements
 /hubstatus           (admin PM) — show binding status
 """
@@ -11,7 +12,7 @@ from telegram.constants import ParseMode
 from telegram.ext import CommandHandler, ContextTypes
 
 import database as db
-from utils import (admin_in_group, command_text, extract_buttons,
+from utils import (admin_in_group, command_text, post_announcement,
                    require_pm_admin)
 
 
@@ -29,24 +30,14 @@ async def setgroup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         title = update.effective_chat.title or chat_id
         await update.effective_message.reply_text(
             f"✅ <b>{title}</b> bind হয়েছে!\n"
-            "এখন inbox-এ /announce &lt;টেক্সট&gt; লিখলেই এখানে পোস্ট হবে।",
+            "এখন inbox-এ শুধু লিখলেই (বা /announce &lt;টেক্সট&gt;) এখানে পোস্ট হবে।",
             parse_mode=ParseMode.HTML)
     except Exception:
         pass
 
 
 async def _do_announce(context, chat_id: int, text: str):
-    clean, markup = extract_buttons(text)
-    msg = await context.bot.send_message(
-        chat_id, f"📢 {clean}", parse_mode=ParseMode.HTML,
-        reply_markup=markup, disable_web_page_preview=True)
-    if db.get_setting(chat_id, "autopin", "0") == "1":
-        try:
-            await context.bot.pin_chat_message(chat_id, msg.message_id,
-                                               disable_notification=True)
-        except Exception:
-            pass
-    return msg
+    return await post_announcement(context, chat_id, text)
 
 
 async def announce(update: Update, context: ContextTypes.DEFAULT_TYPE):
