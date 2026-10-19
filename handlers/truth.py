@@ -286,26 +286,32 @@ async def deltruth(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _admin_chat(update, context):
         return
     arg = command_text(update).strip()
-    m = re.fullmatch(r"b(\d+)", arg, re.IGNORECASE)
-    if m:
-        idx = int(m.group(1)) - 1
-        if not (0 <= idx < len(BUILT_IN_TRUTHS)):
-            return await update.effective_message.reply_text(
-                f"❌ b1–b{len(BUILT_IN_TRUTHS)} এর মধ্যে দিন।")
-        if idx in db.list_hidden_truths():
-            return await update.effective_message.reply_text(
-                f"ℹ️ b{idx + 1} ইতিমধ্যে লুকানো আছে।")
-        db.hide_builtin_truth(idx)
+    tokens = [t for t in re.split(r"[,\s|]+", arg) if t]
+    if not tokens:
         return await update.effective_message.reply_text(
-            f"✅ b{idx + 1} লুকানো হয়েছে।")
-    if arg.isdigit():
-        if db.delete_custom_truth(int(arg)):
-            return await update.effective_message.reply_text(
-                f"✅ {arg} নম্বর প্রশ্ন মুছে ফেলা হয়েছে।")
-        return await update.effective_message.reply_text("❌ পাওয়া যায়নি।")
-    await update.effective_message.reply_text(
-        "ব্যবহার: /deltruth <id>  বা  /deltruth b<নম্বর>\n"
-        "উদাহরণ: /deltruth 3  |  /deltruth b3")
+            "ব্যবহার: /deltruth <id>  বা  /deltruth b<নম্বর>\n"
+            "উদাহরণ: /deltruth 3  |  /deltruth b5 b6")
+    done, failed = [], []
+    for tok in tokens:
+        m = re.fullmatch(r"b(\d+)", tok, re.IGNORECASE)
+        if m:
+            idx = int(m.group(1)) - 1
+            if not (0 <= idx < len(BUILT_IN_TRUTHS)) or \
+                    idx in db.list_hidden_truths():
+                failed.append(tok)
+                continue
+            db.hide_builtin_truth(idx)
+            done.append(tok)
+        elif tok.isdigit() and db.delete_custom_truth(int(tok)):
+            done.append(tok)
+        else:
+            failed.append(tok)
+    lines = []
+    if done:
+        lines.append(f"✅ {', '.join(done)} — হয়ে গেছে।")
+    if failed:
+        lines.append(f"❌ {', '.join(failed)} — পাওয়া যায়নি।")
+    await update.effective_message.reply_text("\n".join(lines))
 
 
 async def edittruth(update: Update, context: ContextTypes.DEFAULT_TYPE):
