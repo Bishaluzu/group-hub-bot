@@ -37,9 +37,9 @@ def parse_countdown_args(raw: str):
 
 
 def render_timer(title: str, remaining: int) -> str:
-    """Pure: full timer message text."""
+    """Pure: full timer message text (timer first, so the pinned bar shows it)."""
     line = f"⏳ <b>লাইভ শুরু হতে বাকি:</b> {fmt_time_left(remaining)}"
-    return f"{title}\n{line}" if title else line
+    return f"{line}\n{title}" if title else line
 
 
 def due_milestones(prev_remaining: int, remaining: int, milestones):
@@ -90,7 +90,7 @@ async def _tick(context: ContextTypes.DEFAULT_TYPE):
     milestones = db.list_milestones(chat_id)
     if remaining <= 0:
         title = data.get("title", "")
-        end_text = (f"{title}\n🔴 <b>LIVE START!</b> 🎥" if title
+        end_text = (f"🔴 <b>LIVE START!</b> 🎥\n{title}" if title
                     else "🔴 <b>LIVE START!</b> 🎥")
         try:
             await context.bot.edit_message_text(
