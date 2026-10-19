@@ -9,6 +9,7 @@
 
 import html
 import logging
+import os
 import random
 import re
 import time
@@ -165,13 +166,44 @@ def _cb_reply(owner_id: int, rid: int) -> str:
     return f"truth:reply:{owner_id}:{rid}"
 
 
+# Round video shipped with the bot (assets/promo_video.mp4).
+_ASSETS_DIR = os.path.normpath(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "assets"))
+_PROMO_VIDEO_PATH = os.path.join(_ASSETS_DIR, "promo_video.mp4")
+
+
+async def _send_round_video(context, chat_id: int):
+    """Send the small round video.
+
+    First send uploads from assets/promo_video.mp4 and caches the
+    file_id in bot_data; later rounds reuse the cached file_id.
+    Returns the sent message or None on failure.
+    """
+    bot_data = getattr(context, "bot_data", None) or {}
+    file_id = bot_data.get("promo_video_file_id")
+    vmsg = None
+    try:
+        if file_id:
+            vmsg = await context.bot.send_video(chat_id, video=file_id)
+        elif os.path.isfile(_PROMO_VIDEO_PATH):
+            with open(_PROMO_VIDEO_PATH, "rb") as f:
+                vmsg = await context.bot.send_video(chat_id, video=f)
+            try:
+                context.bot_data["promo_video_file_id"] = vmsg.video.file_id
+            except Exception:
+                pass
+    except Exception:
+        vmsg = None
+    return vmsg
+
+
 def _next_round(question: str, owner_id: int, chat_id: int,
-                dice_msg_id: int = 0) -> int:
+                video_msg_id: int = 0) -> int:
     global _round_counter
     _round_counter += 1
     ROUNDS[_round_counter] = {"question": question, "owner": owner_id,
                               "chat_id": chat_id,
-                              "dice_msg_id": dice_msg_id}
+                              "video_msg_id": video_msg_id}
     return _round_counter
 
 
@@ -187,13 +219,17 @@ async def _admin_chat(update, context) -> int:
 
 
 async def _new_round(context, chat_id: int, user_id: int):
-    """Question message with Reply / new-question buttons (no dice)."""
+    """Small video -> question message with Reply / new-question buttons."""
     pool = get_pool()
     if not pool:
         await context.bot.send_message(chat_id, "❌ প্রশ্নের তালিকা খালি।")
         return
+    vmsg = await _send_round_video(context, chat_id)
+    _schedule_delete(context, chat_id,
+                     vmsg.message_id if vmsg else 0)
     question = random.choice(pool)
-    rid = _next_round(question, user_id, chat_id)
+    rid = _next_round(question, user_id, chat_id,
+                      vmsg.message_id if vmsg else 0)
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("💬 Reply",
                               callback_data=_cb_reply(user_id, rid)),
@@ -510,20 +546,29 @@ async def truth_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     now = time.time()
     last = _NEW_CD.get((chat.id, tapper.id), 0)
     if now - last < _NEW_CD_SEC:
+        remain = int(_NEW_CD_SEC - (now - last))
+        if remain >= 60:
+            when = "1 মিনিট"
+        else:
+            when = f"{remain} সেকেন্ড"
         try:
-            await q.answer("⏳ 60 সেকেন্ড অপেক্ষা করো",
-                           show_alert=False)
+            warn = await context.bot.send_message(
+                chat.id, f"⏳ {when} পর ক্লিক করুন")
+            _schedule_delete_secs(context, chat.id, warn.message_id, 8)
         except Exception:
             pass
         return
     _NEW_CD[(chat.id, tapper.id)] = now
     rnd = ROUNDS.get(rid)
     if tapper.id == owner_id and rnd:
-        # old question deleted, then fresh round
-        try:
-            await context.bot.delete_message(chat.id, q.message.message_id)
-        except Exception:
-            pass
+        # old question + old video deleted, then fresh round
+        for mid in (q.message.message_id, (rnd.get("video_msg_id") or 0)):
+            if not mid:
+                continue
+            try:
+                await context.bot.delete_message(chat.id, mid)
+            except Exception:
+                pass
     await _new_round(context, chat.id, tapper.id)
 
 
