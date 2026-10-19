@@ -488,7 +488,7 @@ async def truth_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     last = _NEW_CD.get((chat.id, tapper.id), 0)
     if now - last < _NEW_CD_SEC:
         try:
-            await q.answer("⏳ একটু অপেক্ষা করো, 60 সেকেন্ড পর আবার চাপ দাও",
+            await q.answer("⏳ 60 সেকেন্ড অপেক্ষা করো",
                            show_alert=False)
         except Exception:
             pass
