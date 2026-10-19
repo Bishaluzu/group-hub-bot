@@ -18,6 +18,9 @@ async def proof_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """PM photo/document from a member -> admin with approve/reject."""
     msg = update.effective_message
     user = update.effective_user
+    # Banned users are silently ignored.
+    if db.is_banned(user.id):
+        return
     chat_id, admin_id = db.get_bound()
     if not chat_id or not admin_id:
         return
