@@ -11,12 +11,12 @@ All-in-one Telegram **group + inbox** bot (Python, `python-telegram-bot`).
 | 4 | Reply routing (member PM → admin → back) | automatic |
 | 5 | FAQ auto-reply (PM + group) | `/setfaq kw \| reply`, `/delfaq`, `/faqs` |
 | 6 | AI fallback (Gemini, optional) | automatic in PM |
-| 7 | Polls with live % bars | `/poll q \| o1 \| o2`, `/endpoll` |
-| 8 | Scheduled announce (daily, Dhaka time) | `/schedule HH:MM <text>`, `/cancelschedule` |
+| 7 | Polls with live % bars | `/poll q \| o1 \| o2`, `/endpoll` — গ্রুপ বা bot-এর inbox দুটোতেই চলে |
+| 8 | Scheduled announce (daily, Dhaka time) | `/schedule HH:MM <text>`, `/cancelschedule` — গ্রুপ বা inbox |
 | 9 | Keyword alerts to admin | `/setkeywords w1,w2` |
 | 10 | Payment proof inbox (Approve/Reject) | send photo in PM |
-| 11 | Live countdown | `/countdown <minutes>` |
-| 12 | Daily message | `/setdaily HH:MM <text>` |
+| 11 | Live countdown | `/countdown <minutes>` — গ্রুপ বা bot-এর inbox দুটোতেই চলে |
+| 12 | Daily message | `/setdaily HH:MM <text>` — গ্রুপ বা inbox |
 | 13 | Anonymous feedback | `/feedback <text>` (PM) |
 | 14 | Quiz game (+10) | `/quiz`, `/score` |
 | 15 | Weekly top members | `/top` |
