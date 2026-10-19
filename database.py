@@ -8,6 +8,7 @@ import json
 import os
 import sqlite3
 import threading
+from datetime import datetime, timezone
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = "/data" if os.path.isdir("/data") else BASE_DIR
@@ -83,6 +84,11 @@ def init_db():
                 name    TEXT    NOT NULL DEFAULT '',
                 count   INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY (chat_id, week, user_id)
+            );
+            CREATE TABLE IF NOT EXISTS banned_users (
+                user_id   INTEGER PRIMARY KEY,
+                name      TEXT    NOT NULL DEFAULT '',
+                banned_at TEXT    NOT NULL DEFAULT ''
             );
             """
         )
@@ -321,3 +327,37 @@ def top_week(chat_id: int, week: str, limit: int = 10):
             "ORDER BY count DESC LIMIT ?",
             (chat_id, week, limit),
         ).fetchall()
+
+
+# ------------------------------------------------------------ banned users
+def ban_user(user_id: int, name: str = "") -> None:
+    with _LOCK, _connect() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO banned_users (user_id, name, banned_at) "
+            "VALUES (?,?,?)",
+            (user_id, name or "",
+             datetime.now(timezone.utc).isoformat(timespec="seconds")),
+        )
+
+
+def unban_user(user_id: int) -> bool:
+    with _LOCK, _connect() as conn:
+        cur = conn.execute(
+            "DELETE FROM banned_users WHERE user_id=?", (user_id,))
+        return cur.rowcount > 0
+
+
+def is_banned(user_id: int) -> bool:
+    with _LOCK, _connect() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM banned_users WHERE user_id=?", (user_id,)
+        ).fetchone()
+        return row is not None
+
+
+def list_banned():
+    with _LOCK, _connect() as conn:
+        rows = conn.execute(
+            "SELECT user_id, name FROM banned_users ORDER BY banned_at"
+        ).fetchall()
+        return [(r["user_id"], r["name"]) for r in rows]
