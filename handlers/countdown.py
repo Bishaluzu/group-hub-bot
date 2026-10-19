@@ -37,8 +37,8 @@ def parse_countdown_args(raw: str):
 
 
 def render_timer(title: str, remaining: int) -> str:
-    """Pure: full timer message text (timer first, so the pinned bar shows it)."""
-    line = f"⏳ <b>লাইভ শুরু হতে বাকি:</b> {fmt_time_left(remaining)}"
+    """Pure: full timer message text (big timer first, so the pinned bar shows it)."""
+    line = f"⏳ <b>{fmt_time_left(remaining)}</b> ⏳"
     return f"{line}\n{title}" if title else line
 
 
