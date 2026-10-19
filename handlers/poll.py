@@ -1,7 +1,7 @@
 """Group polls with live % bars.
 
-/poll <প্রশ্ন> | <অপশন১> | <অপশন২> ...   (admin, group)
-/endpoll                                  (admin, group) — close + winner
+/poll <প্রশ্ন> | <অপশন১> | <অপশন২> ...   (admin — গ্রুপ বা bot-এর inbox)
+/endpoll                                  (admin — গ্রুপ বা bot-এর inbox) — close + winner
 """
 
 import html
@@ -12,7 +12,7 @@ from telegram.constants import ParseMode
 from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes
 
 import database as db
-from utils import admin_in_group, command_text, progress_bar
+from utils import command_text, progress_bar, resolve_target_chat
 
 
 def render_poll(question: str, options, votes: dict, open_: bool) -> str:
@@ -50,11 +50,9 @@ async def _send_poll(context, chat_id: int, row) -> None:
 
 
 async def poll(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type == "private":
-        return await update.effective_message.reply_text("❌ /poll গ্রুপে দিন।")
-    if not await admin_in_group(update, context):
-        return await update.effective_message.reply_text(
-            "❌ শুধু অ্যাডমিনরা poll বানাতে পারেন।")
+    chat_id, err = await resolve_target_chat(update, context)
+    if not chat_id:
+        return await update.effective_message.reply_text(err)
     raw = command_text(update)
     parts = [p.strip() for p in raw.split("|")]
     if len(parts) < 3:
@@ -65,12 +63,12 @@ async def poll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(options) > 10:
         return await update.effective_message.reply_text("❌ সর্বোচ্চ ১০টা অপশন।")
     # close any previous open poll
-    old = db.get_open_poll(update.effective_chat.id)
+    old = db.get_open_poll(chat_id)
     if old:
         db.close_poll(old["id"])
-    poll_id = db.create_poll(update.effective_chat.id, question, options)
+    poll_id = db.create_poll(chat_id, question, options)
     row = db.get_poll(poll_id)
-    await _send_poll(context, update.effective_chat.id, row)
+    await _send_poll(context, chat_id, row)
     try:
         await update.effective_message.delete()
     except Exception:
@@ -99,12 +97,10 @@ async def vote_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def endpoll(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type == "private":
-        return
-    if not await admin_in_group(update, context):
-        return await update.effective_message.reply_text(
-            "❌ শুধু অ্যাডমিনরা poll বন্ধ করতে পারেন।")
-    row = db.get_open_poll(update.effective_chat.id)
+    chat_id, err = await resolve_target_chat(update, context)
+    if not chat_id:
+        return await update.effective_message.reply_text(err)
+    row = db.get_open_poll(chat_id)
     if not row:
         return await update.effective_message.reply_text("📭 কোনো চালু poll নেই।")
     options = json.loads(row["options"])
