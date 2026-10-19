@@ -4,6 +4,7 @@ from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 
 import database as db
+from .truth import truth_keyboard
 
 HELP_PM = """👋 <b>Group Hub Bot</b>
 
@@ -19,6 +20,8 @@ HELP_PM = """👋 <b>Group Hub Bot</b>
 /setkeywords w1,w2 — keyword alert
 /feedback &lt;টেক্সট&gt; — গ্রুপে নাম ছাড়া পোস্ট
 /remind &lt;10m|2h&gt; &lt;টেক্সট&gt; — পরে মনে করিয়ে দেবে
+/truth18 — 🎲 18+ truth game (dice)
+/suggest &lt;প্রশ্ন&gt; — প্রশ্ন suggest করো (approve হলে যোগ হবে)
 
 কেউ inbox-এ মেসেজ দিলে আপনার কাছে forward হবে — reply দিলেই member-এর কাছে যাবে। ছবি/document পাঠালে Approve/Reject বাটন পাবেন।"""
 
@@ -33,7 +36,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     from telegram.constants import ParseMode
     if update.effective_chat.type == "private":
-        await update.effective_message.reply_text(HELP_PM, parse_mode=ParseMode.HTML)
+        await update.effective_message.reply_text(HELP_PM, parse_mode=ParseMode.HTML,
+                                                  reply_markup=truth_keyboard())
     else:
         await update.effective_message.reply_text(
             "👋 Group Hub Bot চালু! গ্রুপ bind করতে অ্যাডমিন /setgroup দিন।")
