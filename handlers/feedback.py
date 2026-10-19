@@ -9,6 +9,8 @@ from utils import command_text
 
 
 async def feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type == "private" and db.is_banned(update.effective_user.id):
+        return
     if update.effective_chat.type != "private":
         return await update.effective_message.reply_text(
             "❌ /feedback inbox-এ (bot-এর PM-এ) দিন।")
