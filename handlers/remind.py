@@ -4,6 +4,7 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import CommandHandler, ContextTypes
 
+import database as db
 from utils import command_text, parse_delay
 
 
@@ -18,6 +19,8 @@ async def _fire(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type == "private" and db.is_banned(update.effective_user.id):
+        return
     if update.effective_chat.type != "private":
         return await update.effective_message.reply_text(
             "❌ /remind inbox-এ (bot-এর PM-এ) দিন।")
