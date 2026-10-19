@@ -164,6 +164,22 @@ def fmt_hms(total_seconds: int) -> str:
     return f"{m:02d}:{s:02d}"
 
 
+def fmt_time_left(total_seconds: int) -> str:
+    """Pure: seconds -> adaptive Bengali label for the countdown.
+
+    7200 -> '2 ঘণ্টা', 7140 -> '1 ঘণ্টা 59 মিনিট',
+    3000 -> '50 মিনিট', 50 -> '50 সেকেন্ড'.
+    """
+    total_seconds = max(0, int(total_seconds))
+    h, rem = divmod(total_seconds, 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return f"{h} ঘণ্টা" + (f" {m} মিনিট" if m else "")
+    if m:
+        return f"{m} মিনিট"
+    return f"{s} সেকেন্ড"
+
+
 async def notify_admin(context: ContextTypes.DEFAULT_TYPE, text: str,
                        parse_mode=None, reply_markup=None) -> bool:
     """Send a PM to the bound-group admin. Returns False if no admin / failed."""
