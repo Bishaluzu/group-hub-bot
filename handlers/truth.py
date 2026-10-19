@@ -147,6 +147,18 @@ def _schedule_delete(context, chat_id: int, msg_id: int):
             pass
 
 
+def _schedule_delete_secs(context, chat_id: int, msg_id: int, secs: int):
+    """Fixed-delay delete (independent of /gametimer)."""
+    if secs and getattr(context, "job_queue", None):
+        try:
+            context.job_queue.run_once(
+                _delete_job, secs,
+                data={"chat_id": chat_id, "msg_id": msg_id},
+                name=f"truthdel_{chat_id}_{msg_id}")
+        except Exception:
+            pass
+
+
 def _cb_new(owner_id: int, rid: int) -> str:
     return f"truth:new:{owner_id}:{rid}"
 
@@ -388,8 +400,15 @@ async def suggest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     db.touch_user(user.id, user.full_name, user.username or "")
     await _submit_suggestion(context, user, text, update.effective_chat.id)
-    await update.effective_message.reply_text(
-        "✅ তোমার প্রশ্ন পাঠানো হয়েছে, অ্যাডমিন approve করলে যোগ হবে।")
+    conf = await update.effective_message.reply_text(
+        "✅ তোমার প্রশ্ন পাঠানো হয়েছে, অ্যাডমিন approve করলে যোগ হবে।\n"
+        "💡 আমাকে start করে ইনবক্সে মেসেজ দিয়ে রাখো, "
+        "তাইলে তোমাকে আরো সাহায্য করতে পারবো।")
+    try:
+        _schedule_delete_secs(context, update.effective_chat.id,
+                              conf.message_id, 30)
+    except Exception:
+        pass
 
 
 async def sug_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -581,9 +600,12 @@ async def answer_watcher(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.touch_user(user.id, user.full_name, user.username or "")
         await _submit_suggestion(context, user, text, chat.id)
         try:
-            await context.bot.send_message(
+            conf = await context.bot.send_message(
                 chat.id,
-                "✅ তোমার প্রশ্ন পাঠানো হয়েছে, অ্যাডমিন approve করলে যোগ হবে।")
+                "✅ তোমার প্রশ্ন পাঠানো হয়েছে, অ্যাডমিন approve করলে যোগ হবে।\n"
+                "💡 আমাকে start করে ইনবক্সে মেসেজ দিয়ে রাখো, "
+                "তাইলে তোমাকে আরো সাহায্য করতে পারবো।")
+            _schedule_delete_secs(context, chat.id, conf.message_id, 30)
         except Exception:
             pass
         raise ApplicationHandlerStop()
