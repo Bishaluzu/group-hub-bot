@@ -5,7 +5,7 @@ import re
 from datetime import datetime, timedelta, timezone
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.constants import ChatMemberStatus
+from telegram.constants import ChatMemberStatus, ParseMode
 from telegram.ext import ContextTypes
 
 import database as db
@@ -177,3 +177,64 @@ async def notify_admin(context: ContextTypes.DEFAULT_TYPE, text: str,
         return True
     except Exception:
         return False
+
+
+async def admin_reply_back(update, context) -> bool:
+    """Admin replied to a forwarded member message -> copy it to the member.
+
+    Returns True if it was routed to a member, False otherwise.
+    """
+    reply_to = update.effective_message.reply_to_message
+    if not reply_to:
+        return False
+    member_id, member_name = db.lookup_forward(reply_to.message_id)
+    if not member_id:
+        return False
+    try:
+        await context.bot.copy_message(
+            chat_id=member_id,
+            from_chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id,
+            caption=(update.effective_message.caption or None))
+        await update.effective_message.reply_text(
+            f"✅ {member_name}-এর কাছে পাঠানো হয়েছে।")
+    except Exception as e:
+        await update.effective_message.reply_text(f"❌ পাঠানো যায়নি: {e}")
+    return True
+
+
+async def post_announcement(context, chat_id: int, text: str):
+    """Post a text announcement to the group (button syntax + autopin)."""
+    clean, markup = extract_buttons(text)
+    msg = await context.bot.send_message(
+        chat_id, f"📢 {clean}", parse_mode=ParseMode.HTML,
+        reply_markup=markup, disable_web_page_preview=True)
+    if db.get_setting(chat_id, "autopin", "0") == "1":
+        try:
+            await context.bot.pin_chat_message(chat_id, msg.message_id,
+                                               disable_notification=True)
+        except Exception:
+            pass
+    return msg
+
+
+async def post_announcement_media(context, chat_id: int, caption: str = "",
+                                  photo=None, document=None):
+    """Post a photo/document announcement to the group (button syntax + autopin)."""
+    clean, markup = extract_buttons(caption or "")
+    cap = f"📢 {clean}" if clean else None
+    if photo:
+        msg = await context.bot.send_photo(
+            chat_id, photo, caption=cap, parse_mode=ParseMode.HTML,
+            reply_markup=markup)
+    else:
+        msg = await context.bot.send_document(
+            chat_id, document, caption=cap, parse_mode=ParseMode.HTML,
+            reply_markup=markup)
+    if db.get_setting(chat_id, "autopin", "0") == "1":
+        try:
+            await context.bot.pin_chat_message(chat_id, msg.message_id,
+                                               disable_notification=True)
+        except Exception:
+            pass
+    return msg
