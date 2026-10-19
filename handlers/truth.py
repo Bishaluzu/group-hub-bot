@@ -167,11 +167,13 @@ def _cb_reply(owner_id: int, rid: int) -> str:
     return f"truth:reply:{owner_id}:{rid}"
 
 
-def _next_round(question: str, owner_id: int, chat_id: int) -> int:
+def _next_round(question: str, owner_id: int, chat_id: int,
+                dice_msg_id: int = 0) -> int:
     global _round_counter
     _round_counter += 1
     ROUNDS[_round_counter] = {"question": question, "owner": owner_id,
-                              "chat_id": chat_id}
+                              "chat_id": chat_id,
+                              "dice_msg_id": dice_msg_id}
     return _round_counter
 
 
@@ -205,7 +207,8 @@ async def _new_round(context, chat_id: int, user_id: int):
     except Exception:
         value = random.randint(1, 6)
     question = pool[value % len(pool)]
-    rid = _next_round(question, user_id, chat_id)
+    rid = _next_round(question, user_id, chat_id,
+                      dice_msg.message_id if dice_msg else 0)
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("💬 Reply",
                               callback_data=_cb_reply(user_id, rid)),
@@ -531,11 +534,14 @@ async def truth_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _NEW_CD[(chat.id, tapper.id)] = now
     rnd = ROUNDS.get(rid)
     if tapper.id == owner_id and rnd:
-        try:
-            await context.bot.delete_message(chat.id,
-                                             q.message.message_id)
-        except Exception:
-            pass
+        # old question AND old dice deleted, then fresh round
+        for mid in (q.message.message_id, (rnd.get("dice_msg_id") or 0)):
+            if not mid:
+                continue
+            try:
+                await context.bot.delete_message(chat.id, mid)
+            except Exception:
+                pass
     await _new_round(context, chat.id, tapper.id)
 
 
