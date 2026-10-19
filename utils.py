@@ -207,7 +207,7 @@ async def post_announcement(context, chat_id: int, text: str):
     """Post a text announcement to the group (button syntax + autopin)."""
     clean, markup = extract_buttons(text)
     msg = await context.bot.send_message(
-        chat_id, f"📢 {clean}", parse_mode=ParseMode.HTML,
+        chat_id, clean, parse_mode=ParseMode.HTML,
         reply_markup=markup, disable_web_page_preview=True)
     if db.get_setting(chat_id, "autopin", "0") == "1":
         try:
@@ -222,7 +222,7 @@ async def post_announcement_media(context, chat_id: int, caption: str = "",
                                   photo=None, document=None):
     """Post a photo/document announcement to the group (button syntax + autopin)."""
     clean, markup = extract_buttons(caption or "")
-    cap = f"📢 {clean}" if clean else None
+    cap = clean if clean else None
     if photo:
         msg = await context.bot.send_photo(
             chat_id, photo, caption=cap, parse_mode=ParseMode.HTML,
