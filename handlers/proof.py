@@ -21,6 +21,8 @@ async def proof_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Banned users are silently ignored.
     if db.is_banned(user.id):
         return
+    db.touch_user(user.id, user.first_name or "",
+                  getattr(user, "username", "") or "")
     chat_id, admin_id = db.get_bound()
     if not chat_id or not admin_id:
         return
