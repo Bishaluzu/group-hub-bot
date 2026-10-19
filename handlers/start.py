@@ -3,6 +3,8 @@
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 
+import database as db
+
 HELP_PM = """👋 <b>Group Hub Bot</b>
 
 <b>অ্যাডমিন (inbox):</b>
@@ -27,6 +29,8 @@ HELP_GROUP = """👋 <b>Group Hub Bot</b> — গ্রুপে /setgroup দ�
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type == "private" and db.is_banned(update.effective_user.id):
+        return
     from telegram.constants import ParseMode
     if update.effective_chat.type == "private":
         await update.effective_message.reply_text(HELP_PM, parse_mode=ParseMode.HTML)
@@ -36,6 +40,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type == "private" and db.is_banned(update.effective_user.id):
+        return
     from telegram.constants import ParseMode
     if update.effective_chat.type == "private":
         await update.effective_message.reply_text(HELP_PM, parse_mode=ParseMode.HTML)
