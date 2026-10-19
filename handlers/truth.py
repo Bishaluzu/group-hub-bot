@@ -290,9 +290,25 @@ async def deltruth(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not tokens:
         return await update.effective_message.reply_text(
             "ব্যবহার: /deltruth <id>  বা  /deltruth b<নম্বর>\n"
-            "উদাহরণ: /deltruth 3  |  /deltruth b5 b6")
+            "উদাহরণ: /deltruth 3  |  /deltruth b5 b6  |  /deltruth b1-b45")
     done, failed = [], []
     for tok in tokens:
+        # range: b1-b45
+        m = re.fullmatch(r"b(\d+)-b?(\d+)", tok, re.IGNORECASE)
+        if m:
+            a, b = int(m.group(1)), int(m.group(2))
+            a, b = min(a, b), max(a, b)
+            ok_any = False
+            for n in range(a, b + 1):
+                idx = n - 1
+                if 0 <= idx < len(BUILT_IN_TRUTHS) and \
+                        idx not in db.list_hidden_truths():
+                    db.hide_builtin_truth(idx)
+                    done.append(f"b{n}")
+                    ok_any = True
+            if not ok_any:
+                failed.append(tok)
+            continue
         m = re.fullmatch(r"b(\d+)", tok, re.IGNORECASE)
         if m:
             idx = int(m.group(1)) - 1
