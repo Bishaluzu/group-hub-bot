@@ -27,35 +27,6 @@ from utils import (admin_in_group, command_text, mention_html,
 
 logger = logging.getLogger("hub.truth")
 
-# Dice promo video shipped with the bot (assets/dice_promo.mp4).
-_ASSETS_DIR = os.path.normpath(os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "assets"))
-_PROMO_VIDEO_PATH = os.path.join(_ASSETS_DIR, "dice_promo.mp4")
-
-
-async def _send_promo_video(context, chat_id: int):
-    """Send the dice promo video after the dice animation.
-
-    First send uploads from assets/dice_promo.mp4 and caches the
-    file_id in bot_data; later rounds reuse the cached file_id.
-    Returns the sent message or None on failure.
-    """
-    bot_data = getattr(context, "bot_data", None) or {}
-    file_id = bot_data.get("dice_promo_file_id")
-    vmsg = None
-    try:
-        if file_id:
-            vmsg = await context.bot.send_video(chat_id, video=file_id)
-        elif os.path.isfile(_PROMO_VIDEO_PATH):
-            with open(_PROMO_VIDEO_PATH, "rb") as f:
-                vmsg = await context.bot.send_video(chat_id, video=f)
-            try:
-                context.bot_data["dice_promo_file_id"] = vmsg.video.file_id
-            except Exception:
-                pass
-    except Exception:
-        vmsg = None
-    return vmsg
 
 BUILT_IN_TRUTHS = [
     "🔞 সবচেয়ে naughty স্বপ্ন কী দেখেছো?",
@@ -212,10 +183,6 @@ async def _new_round(context, chat_id: int, user_id: int):
         dice_msg = None
     _schedule_delete(context, chat_id,
                      dice_msg.message_id if dice_msg else 0)
-    # Promo video right after the dice (arrives while it animates).
-    vmsg = await _send_promo_video(context, chat_id)
-    _schedule_delete(context, chat_id,
-                     vmsg.message_id if vmsg else 0)
     await asyncio.sleep(4)
     try:
         value = dice_msg.dice.value
