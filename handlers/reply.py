@@ -2,8 +2,9 @@
 
 - Any member PM (text/media) -> forwarded to the bound admin with a header.
 - Admin replies to a forwarded message -> copied back to the member.
-- FAQ keyword match -> instant auto-reply in PM.
-- No FAQ match + GEMINI_API_KEY set -> short AI reply.
+- Admin's fresh plain PM (not a reply) -> posted to the bound group as announcement.
+- FAQ keyword match -> instant auto-reply in PM (members only).
+- No FAQ match + GEMINI_API_KEY set -> short AI reply (members only).
 """
 
 import logging
@@ -15,7 +16,8 @@ from telegram.constants import ChatAction
 from telegram.ext import ContextTypes, MessageHandler, filters
 
 import database as db
-from utils import is_admin_of, mention_html, notify_admin
+from utils import (admin_reply_back, is_admin_of, mention_html, notify_admin,
+                   post_announcement)
 
 logger = logging.getLogger("hub.reply")
 
@@ -75,35 +77,26 @@ async def _forward_to_admin(update, context, member):
         logger.warning("forward to admin failed: %s", e)
 
 
-async def _admin_reply_back(update, context):
-    """Admin replied to a forwarded message -> copy it to the member."""
-    reply_to = update.effective_message.reply_to_message
-    if not reply_to:
-        return False
-    member_id, member_name = db.lookup_forward(reply_to.message_id)
-    if not member_id:
-        return False
-    try:
-        await context.bot.copy_message(
-            chat_id=member_id,
-            from_chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id,
-            caption=(update.effective_message.caption or None))
-        await update.effective_message.reply_text(f"✅ {member_name}-এর কাছে পাঠানো হয়েছে।")
-    except Exception as e:
-        await update.effective_message.reply_text(f"❌ পাঠানো যায়নি: {e}")
-    return True
-
-
 async def pm_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle every non-command PM. Group=1 so commands run first."""
     msg = update.effective_message
     user = update.effective_user
     chat_id, admin_id = db.get_bound()
 
-    # Admin's own PM: only route replies, nothing else.
+    # Admin's own PM: replies route to members; fresh messages -> group announcement.
+    # Never forwarded, never FAQ/AI.
     if admin_id and user.id == admin_id:
-        await _admin_reply_back(update, context)
+        if await admin_reply_back(update, context):
+            return
+        if not chat_id:
+            await msg.reply_text("❌ আগে গ্রুপে গিয়ে /setgroup দিন।")
+            return
+        try:
+            await post_announcement(context, chat_id, msg.text or "")
+        except Exception as e:
+            return await msg.reply_text(
+                f"❌ পোস্ট করা যায়নি: {e}\nবট গ্রুপে অ্যাডমিন আছে তো?")
+        await msg.reply_text("✅ ঘোষণা গ্রুপে পোস্ট হয়েছে।")
         return
 
     text = msg.text or msg.caption or ""
