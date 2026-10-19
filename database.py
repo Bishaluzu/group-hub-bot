@@ -103,6 +103,20 @@ def init_db():
                 username TEXT    NOT NULL DEFAULT '',
                 seen_at  TEXT    NOT NULL DEFAULT ''
             );
+            CREATE TABLE IF NOT EXISTS custom_truths (
+                id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                text TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS hidden_truths (
+                idx INTEGER PRIMARY KEY
+            );
+            CREATE TABLE IF NOT EXISTS suggestions (
+                id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name    TEXT    NOT NULL DEFAULT '',
+                text    TEXT    NOT NULL,
+                status  TEXT    NOT NULL DEFAULT 'pending'
+            );
             """
         )
         for kw, reply in DEFAULT_FAQS:
@@ -425,3 +439,77 @@ def list_known_users():
             "SELECT user_id, name FROM known_users ORDER BY seen_at"
         ).fetchall()
         return [(r["user_id"], r["name"]) for r in rows]
+
+
+# ------------------------------------------------------------ truth game
+def add_custom_truth(text: str) -> int:
+    with _LOCK, _connect() as conn:
+        cur = conn.execute(
+            "INSERT INTO custom_truths (text) VALUES (?)", (text,))
+        return cur.lastrowid
+
+
+def list_custom_truths():
+    with _LOCK, _connect() as conn:
+        rows = conn.execute(
+            "SELECT id, text FROM custom_truths ORDER BY id").fetchall()
+        return [(r["id"], r["text"]) for r in rows]
+
+
+def get_custom_truth(tid: int):
+    with _LOCK, _connect() as conn:
+        row = conn.execute(
+            "SELECT id, text FROM custom_truths WHERE id=?", (tid,)).fetchone()
+        return (row["id"], row["text"]) if row else None
+
+
+def update_custom_truth(tid: int, text: str) -> bool:
+    with _LOCK, _connect() as conn:
+        cur = conn.execute(
+            "UPDATE custom_truths SET text=? WHERE id=?", (text, tid))
+        return cur.rowcount > 0
+
+
+def delete_custom_truth(tid: int) -> bool:
+    with _LOCK, _connect() as conn:
+        cur = conn.execute(
+            "DELETE FROM custom_truths WHERE id=?", (tid,))
+        return cur.rowcount > 0
+
+
+def hide_builtin_truth(idx: int) -> None:
+    with _LOCK, _connect() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO hidden_truths (idx) VALUES (?)", (idx,))
+
+
+def list_hidden_truths() -> set:
+    with _LOCK, _connect() as conn:
+        rows = conn.execute("SELECT idx FROM hidden_truths").fetchall()
+        return {r["idx"] for r in rows}
+
+
+# ------------------------------------------------------------ suggestions
+def add_suggestion(user_id: int, name: str, text: str) -> int:
+    with _LOCK, _connect() as conn:
+        cur = conn.execute(
+            "INSERT INTO suggestions (user_id, name, text) VALUES (?,?,?)",
+            (user_id, name or "", text))
+        return cur.lastrowid
+
+
+def get_suggestion(sid: int):
+    with _LOCK, _connect() as conn:
+        row = conn.execute(
+            "SELECT id, user_id, name, text, status FROM suggestions WHERE id=?",
+            (sid,)).fetchone()
+        return dict(row) if row else None
+
+
+def set_suggestion_status(sid: int, status: str) -> bool:
+    """Set status only if still pending (double-tap safe)."""
+    with _LOCK, _connect() as conn:
+        cur = conn.execute(
+            "UPDATE suggestions SET status=? WHERE id=? AND status='pending'",
+            (status, sid))
+        return cur.rowcount > 0
