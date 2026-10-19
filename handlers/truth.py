@@ -10,6 +10,7 @@
 import asyncio
 import html
 import logging
+import os
 import random
 import re
 
@@ -26,22 +27,86 @@ from utils import (admin_in_group, command_text, mention_html,
 
 logger = logging.getLogger("hub.truth")
 
+# Dice promo video shipped with the bot (assets/dice_promo.mp4).
+_ASSETS_DIR = os.path.normpath(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "assets"))
+_PROMO_VIDEO_PATH = os.path.join(_ASSETS_DIR, "dice_promo.mp4")
+
+
+async def _send_promo_video(context, chat_id: int):
+    """Send the dice promo video after the dice animation.
+
+    First send uploads from assets/dice_promo.mp4 and caches the
+    file_id in bot_data; later rounds reuse the cached file_id.
+    Returns the sent message or None on failure.
+    """
+    bot_data = getattr(context, "bot_data", None) or {}
+    file_id = bot_data.get("dice_promo_file_id")
+    vmsg = None
+    try:
+        if file_id:
+            vmsg = await context.bot.send_video(chat_id, video=file_id)
+        elif os.path.isfile(_PROMO_VIDEO_PATH):
+            with open(_PROMO_VIDEO_PATH, "rb") as f:
+                vmsg = await context.bot.send_video(chat_id, video=f)
+            try:
+                context.bot_data["dice_promo_file_id"] = vmsg.video.file_id
+            except Exception:
+                pass
+    except Exception:
+        vmsg = None
+    return vmsg
+
 BUILT_IN_TRUTHS = [
-    "🔞 প্রথম দেখাতেই কখনো কারো উপর crush খেয়েছো?",
-    "🔞 সবচেয়ে daring কাজ কী করেছো?",
-    "🔞 মাঝরাতে কখনো কাউকে miss করে মেসেজ দিয়েছো?",
-    "🔞 বৃষ্টিতে ভিজে কারো সাথে হেঁটেছো কখনো?",
-    "🔞 প্রথম kiss-এর গল্প বলো!",
-    "🔞 কাউকে impress করতে সবচেয়ে পাগলামি কী করেছো?",
-    "🔞 সবচেয়ে romantic মুহূর্ত কোনটা ছিল?",
-    "🔞 কখনো secret relationship-এ ছিলে?",
-    "🔞 তোমার ideal partner কেমন হবে? Detail-এ বলো!",
-    "🔞 রাত ২টায় কাকে সবচেয়ে বেশি miss করো?",
-    "🔞 কখনো flirt করে কাউকে পটিয়েছো?",
-    "🔞 সবচেয়ে bold স্বপ্ন কী দেখেছো?",
-    "🔞 কাউকে 'ভালোবাসি' বলে পরে আফসোস করেছো?",
-    "🔞 কখনো কাউকে না বলে দূরে কোথাও গেছো?",
-    "🔞 তোমার phone-এর সবচেয়ে special ছবি কার সাথে?",
+    "🔞 সবচেয়ে naughty স্বপ্ন কী দেখেছো?",
+    "🔞 কখনো কাউকে kiss করার সময় ধরা খেয়েছো?",
+    "🔞 তোমার শরীরের কোন অংশটা সবচেয়ে attractive মনে হয়?",
+    "🔞 কখনো মাঝরাতে কাউকে miss করে উল্টাপাল্টা মেসেজ দিয়েছো?",
+    "🔞 প্রথম crush-কে নিয়ে কখনো কল্পনায় হারিয়ে গেছো?",
+    "🔞 কখনো কারো ফোনে গোপন ছবি দেখে ফেলেছো?",
+    "🔞 বিছানায় সবচেয়ে awkward মুহূর্ত কোনটা ছিল?",
+    "🔞 কখনো public place-এ দুষ্টুমি করেছো?",
+    "🔞 তোমার secret fantasy কী? 😏",
+    "🔞 কখনো কাউকে দেখে ভেতরে ভেতরে পাগল হয়েছো?",
+    "🔞 সবচেয়ে hot ড্রেস কোনটা পরেছো?",
+    "🔞 কখনো মিথ্যা বলে কারো সাথে দেখা করতে গেছো?",
+    "🔞 রাতে ঘুমানোর আগে কী ভাবো? 😏",
+    "🔞 কখনো কারো দিকে তাকিয়ে ধরা খেয়েছো?",
+    "🔞 কখনো বাথরুমে আয়নার সামনে পোজ দিয়েছো? 🪞",
+    "🔞 কোন মেয়েকে দেখে প্রথমবার বুক ধড়ফড় করেছিল?",
+    "🔞 কখনো কোন মেয়ের ছবি সেভ করে রেখেছো?",
+    "🔞 মেয়েদের কোন ড্রেসে সবচেয়ে hot লাগে?",
+    "🔞 কখনো কোন মেয়েকে impress করতে মিথ্যা বলেছো?",
+    "🔞 রাতে কোন মেয়ের কথা ভেবে ঘুমাতে দেরি হয়েছে?",
+    "🔞 কখনো crush-এর নাম ফোনে অন্য নামে সেভ করেছো?",
+    "🔞 কোন মেয়ের হাসি সবচেয়ে সুন্দর লাগে?",
+    "🔞 কখনো মেয়ের মেসেজের reply-এর জন্য বারবার ফোন চেক করেছো?",
+    "🔞 প্রথম কোন মেয়েকে ভালো লেগেছিল?",
+    "🔞 কখনো কোন মেয়ের পেছনে লুকিয়ে ফলো করেছো?",
+    "🔞 মেয়েদের কোন পারফিউমের গন্ধ পাগল করে?",
+    "🔞 কখনো স্বপ্নে কোন মেয়েকে দেখে হেসে ঘুম ভেঙেছে?",
+    "🔞 কোন মেয়েকে দেখে মনে হয়েছে \"ওকে বিয়ে করবো\"?",
+    "🔞 কখনো মেয়ের সামনে স্মার্ট সাজার চেষ্টায় বোকা হয়েছো?",
+    "🔞 মেয়েদের লম্বা চুল না ছোট চুল — কোনটা বেশি টানে?",
+    "🔞 কখনো কোন মেয়ের জন্য বন্ধুর সাথে ঝগড়া করেছো?",
+    "🔞 শাড়ি না ওয়েস্টার্ন — মেয়েদের কোন লুকে দুর্বল?",
+    "🔞 কখনো মেয়েকে মেসেজ লিখে ডিলিট করেছো?",
+    "🔞 কোন মেয়ের চোখ সবচেয়ে সুন্দর?",
+    "🔞 কখনো crush-এর বাড়ির সামনে দিয়ে অকারণে হেঁটে গেছো?",
+    "🔞 কখনো কোন মেয়েকে ভুলে \"জান\" বলে ফেলেছো? 😂",
+    "🔞 প্রথম প্রপোজ কাকে করেছিলে, কী হয়েছিল?",
+    "🔞 কখনো মেয়ের রিপ্লাই না পেয়ে সারারাত জেগে ছিলে?",
+    "🔞 কোন নায়িকাকে দেখে crush খেয়েছো?",
+    "🔞 মেয়েদের হাসির শব্দে কখনো মন গলেছে?",
+    "🔞 কখনো কোন মেয়ের জন্য পড়াশোনা/কাজ ভুলে গেছো?",
+    "🔞 লিপস্টিকের কোন শেড মেয়েদের উপর সবচেয়ে hot লাগে? 💋",
+    "🔞 কখনো মেয়েকে দেখে বন্ধুদের সামনে লজ্জা পেয়েছো?",
+    "🔞 কোন মেয়ের সাথে বৃষ্টিতে ভিজতে চাও? 🌧️",
+    "🔞 কখনো মেয়ের ছবিতে লাইক দিয়ে সাথে সাথে আনলাইক করেছো? 😂",
+    "🔞 মেয়েদের কোন অভ্যাসটা সবচেয়ে cute লাগে?",
+    "🔞 কখনো crush-কে স্বপ্নে বিয়ে করেছো? 💍",
+    "🔞 কোন মেয়ের গলার স্বর শুনে প্রেমে পড়েছো?",
+    "🔞 সত্যি বলো — এখন কার কথা ভাবছো? 😏",
 ]
 
 HEADER = "⚠️ <b>যা বলবি সত্যি করে বলবি, পাম মারবি না!</b> ⚠️"
@@ -146,6 +211,10 @@ async def _new_round(context, chat_id: int, user_id: int):
         dice_msg = None
     _schedule_delete(context, chat_id,
                      dice_msg.message_id if dice_msg else 0)
+    # Promo video right after the dice (arrives while it animates).
+    vmsg = await _send_promo_video(context, chat_id)
+    _schedule_delete(context, chat_id,
+                     vmsg.message_id if vmsg else 0)
     await asyncio.sleep(4)
     try:
         value = dice_msg.dice.value
