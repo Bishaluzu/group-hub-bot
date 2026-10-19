@@ -18,6 +18,7 @@ async def count_watcher(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = msg.from_user
     if user.is_bot:
         return
+    db.touch_user(user.id, user.first_name or "", user.username or "")
     db.bump_count(msg.chat_id, current_week(), user.id, user.first_name or "")
 
 
