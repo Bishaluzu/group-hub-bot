@@ -205,7 +205,7 @@ async def _new_round(context, chat_id: int, user_id: int):
     qmsg = await context.bot.send_message(
         chat_id, f"{HEADER}\n🔞 {_clean(question)}",
         parse_mode=ParseMode.HTML, reply_markup=kb)
-    _schedule_delete(context, chat_id, qmsg.message_id)
+    # Question stays until "🎲 নতুন প্রশ্ন" replaces it — never timer-deleted.
 
 
 # ------------------------------------------------------------------ commands
