@@ -20,10 +20,11 @@ from . import (
     schedule,
     start,
     top,
+    truth,
 )
 
 
 def register_all(app):
     for module in (start, announce, faq, poll, schedule, keywords, proof,
-                   countdown, feedback, quiz, top, remind, reply, ban):
+                   countdown, feedback, quiz, top, remind, reply, ban, truth):
         module.register(app)
