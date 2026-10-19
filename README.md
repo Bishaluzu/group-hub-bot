@@ -6,7 +6,7 @@ All-in-one Telegram **group + inbox** bot (Python, `python-telegram-bot`).
 | # | Feature | Command |
 |---|---------|---------|
 | 1 | Bind group | `/setgroup` (in group, admin) |
-| 2 | Announce to group from PM | `/announce <text>` |
+| 2 | Announce to group from PM | just type a message in the bot's PM (or `/announce <text>`) — photo/video also works |
 | 3 | Auto-pin announcements | `/autopin on\|off` |
 | 4 | Reply routing (member PM → admin → back) | automatic |
 | 5 | FAQ auto-reply (PM + group) | `/setfaq kw \| reply`, `/delfaq`, `/faqs` |
@@ -42,7 +42,8 @@ python bot.py
 1. Add the bot to your group as **admin** (needs: post, delete, pin messages).
 2. In the group send `/setgroup` (as admin).
 3. In the bot's PM send `/hubstatus` to verify the binding.
-4. Try `/announce Hello group!` from the PM.
+4. Try typing a plain message in the bot's PM — it will be posted to the group
+   (`/announce Hello group!` also works).
 
 ## Data
 SQLite at `/data/hub.db` on FadeHost (survives deploys), `./hub.db` locally.
