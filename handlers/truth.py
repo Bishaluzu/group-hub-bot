@@ -574,7 +574,7 @@ async def answer_watcher(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         return
     db.touch_user(user.id, user.full_name, user.username or "")
-    _schedule_delete(context, chat.id, sent.message_id)
+    # Answer card stays permanently — never auto-deleted.
     raise ApplicationHandlerStop()
 
 
