@@ -7,10 +7,8 @@
 - Permanent reply keyboard button "🎲 18+ প্রশ্ন" in group + PM.
 """
 
-import asyncio
 import html
 import logging
-import os
 import random
 import re
 import time
@@ -189,26 +187,13 @@ async def _admin_chat(update, context) -> int:
 
 
 async def _new_round(context, chat_id: int, user_id: int):
-    """Dice animation -> question message with Reply / new-question buttons."""
+    """Question message with Reply / new-question buttons (no dice)."""
     pool = get_pool()
     if not pool:
         await context.bot.send_message(chat_id, "❌ প্রশ্নের তালিকা খালি।")
         return
-    try:
-        dice_msg = await context.bot.send_dice(
-            chat_id, emoji="🎲", reply_markup=truth_keyboard())
-    except Exception:
-        dice_msg = None
-    _schedule_delete(context, chat_id,
-                     dice_msg.message_id if dice_msg else 0)
-    await asyncio.sleep(4)
-    try:
-        value = dice_msg.dice.value
-    except Exception:
-        value = random.randint(1, 6)
-    question = pool[value % len(pool)]
-    rid = _next_round(question, user_id, chat_id,
-                      dice_msg.message_id if dice_msg else 0)
+    question = random.choice(pool)
+    rid = _next_round(question, user_id, chat_id)
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("💬 Reply",
                               callback_data=_cb_reply(user_id, rid)),
@@ -534,14 +519,11 @@ async def truth_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _NEW_CD[(chat.id, tapper.id)] = now
     rnd = ROUNDS.get(rid)
     if tapper.id == owner_id and rnd:
-        # old question AND old dice deleted, then fresh round
-        for mid in (q.message.message_id, (rnd.get("dice_msg_id") or 0)):
-            if not mid:
-                continue
-            try:
-                await context.bot.delete_message(chat.id, mid)
-            except Exception:
-                pass
+        # old question deleted, then fresh round
+        try:
+            await context.bot.delete_message(chat.id, q.message.message_id)
+        except Exception:
+            pass
     await _new_round(context, chat.id, tapper.id)
 
 
