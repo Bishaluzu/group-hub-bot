@@ -90,6 +90,27 @@ async def require_pm_admin(update, context):
     return chat_id
 
 
+async def resolve_target_chat(update, context):
+    """Return (chat_id, error_msg) for group-targeting admin commands.
+
+    Works from both the group itself and the bot's PM (inbox):
+    - PM: targets the /setgroup-bound group; sender must be admin/owner of it.
+    - group: targets this chat; sender must be admin/owner of it.
+    On failure returns (0, <Bengali error message>).
+    """
+    user_id = update.effective_user.id
+    if update.effective_chat.type == "private":
+        chat_id, _admin_id = db.get_bound()
+        if not chat_id:
+            return 0, "❌ আগে গ্রুপে গিয়ে /setgroup দিন।"
+        if not await is_admin_of(context.bot, chat_id, user_id):
+            return 0, "❌ শুধু অ্যাডমিনরা এই কমান্ড ব্যবহার করতে পারেন।"
+        return chat_id, None
+    if not await admin_in_group(update, context):
+        return 0, "❌ শুধু অ্যাডমিনরা এই কমান্ড ব্যবহার করতে পারেন।"
+    return update.effective_chat.id, None
+
+
 def mention_html(user_id: int, name: str) -> str:
     return f'<a href="tg://user?id={user_id}">{html.escape(name or "user")}</a>'
 
