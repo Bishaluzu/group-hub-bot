@@ -165,19 +165,22 @@ def fmt_hms(total_seconds: int) -> str:
 
 
 def fmt_time_left(total_seconds: int) -> str:
-    """Pure: seconds -> adaptive Bengali label for the countdown.
+    """Pure: seconds -> Bengali label with seconds always shown.
 
-    7200 -> '2 ঘণ্টা', 7140 -> '1 ঘণ্টা 59 মিনিট',
-    3000 -> '50 মিনিট', 50 -> '50 সেকেন্ড'.
+    7200 -> '2 ঘণ্টা', 7170 -> '1 ঘণ্টা 59 মিনিট 30 সেকেন্ড',
+    3025 -> '50 মিনিট 25 সেকেন্ড', 50 -> '50 সেকেন্ড'.
     """
     total_seconds = max(0, int(total_seconds))
     h, rem = divmod(total_seconds, 3600)
     m, s = divmod(rem, 60)
+    parts = []
     if h:
-        return f"{h} ঘণ্টা" + (f" {m} মিনিট" if m else "")
+        parts.append(f"{h} ঘণ্টা")
     if m:
-        return f"{m} মিনিট"
-    return f"{s} সেকেন্ড"
+        parts.append(f"{m} মিনিট")
+    if s or not parts:
+        parts.append(f"{s} সেকেন্ড")
+    return " ".join(parts)
 
 
 async def notify_admin(context: ContextTypes.DEFAULT_TYPE, text: str,
