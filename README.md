@@ -15,13 +15,18 @@ All-in-one Telegram **group + inbox** bot (Python, `python-telegram-bot`).
 | 8 | Scheduled announce (daily, Dhaka time) | `/schedule HH:MM <text>`, `/cancelschedule` — গ্রুপ বা inbox |
 | 9 | Keyword alerts to admin | `/setkeywords w1,w2` |
 | 10 | Payment proof inbox (Approve/Reject) | send photo in PM |
-| 11 | Live countdown | `/countdown <minutes>` — গ্রুপ বা bot-এর inbox দুটোতেই চলে |
+| 11 | Live countdown (pinned, smart timer) | `/countdown <minutes> \| <title>` — গ্রুপ বা bot-এর inbox দুটোতেই চলে; timer pin হয়, display: 2 ঘণ্টা → 1 ঘণ্টা 59 মিনিট → 50 মিনিট → 50 সেকেন্ড |
 | 12 | Daily message | `/setdaily HH:MM <text>` — গ্রুপ বা inbox |
 | 13 | Anonymous feedback | `/feedback <text>` (PM) |
 | 14 | Quiz game (+10) | `/quiz`, `/score` |
 | 15 | Weekly top members | `/top` |
 | 16 | Reminder | `/remind 10m\|2h <text>` (PM) |
 | 17 | PM ban (bot inbox only, not the group) | `/ban`, `/unban`, `/banned` (admin, PM — reply to a forwarded message or `/ban <user_id>`) |
+| 18 | Countdown milestones | `/cdmsg <min> \| <text>` → ঐ সময়ে গ্রুপে পোস্ট; `/cddm <min> \| <text>` → ঐ সময়ে সবার inbox-এ DM (button syntax `[label](url\|color)` চলে); `/cdmsg 0` / `/cddm 0` শেষে fire হয়; `/cdlist`, `/cdclear` |
+| 19 | Stop countdown | `/endcountdown` |
+
+**Countdown inbox DMs** go to every user the bot has seen (group messages, PMs, poll votes, quiz answers).
+Telegram limit: a bot can only DM users who pressed `/start` on the bot — DMs silently skip everyone else (and banned users + the admin).
 
 Admin checks are **native Telegram** (group admin/owner) — no `ADMIN_IDS` needed.
 
