@@ -115,10 +115,16 @@ def init_db():
                 user_id INTEGER NOT NULL,
                 name    TEXT    NOT NULL DEFAULT '',
                 text    TEXT    NOT NULL,
-                status  TEXT    NOT NULL DEFAULT 'pending'
+                status  TEXT    NOT NULL DEFAULT 'pending',
+                chat_id INTEGER NOT NULL DEFAULT 0
             );
             """
         )
+        # migration for DBs created before chat_id existed
+        try:
+            conn.execute("ALTER TABLE suggestions ADD COLUMN chat_id INTEGER NOT NULL DEFAULT 0")
+        except Exception:
+            pass
         for kw, reply in DEFAULT_FAQS:
             conn.execute(
                 "INSERT OR IGNORE INTO faqs (keyword, reply) VALUES (?,?)", (kw, reply)
@@ -490,18 +496,18 @@ def list_hidden_truths() -> set:
 
 
 # ------------------------------------------------------------ suggestions
-def add_suggestion(user_id: int, name: str, text: str) -> int:
+def add_suggestion(user_id: int, name: str, text: str, chat_id: int = 0) -> int:
     with _LOCK, _connect() as conn:
         cur = conn.execute(
-            "INSERT INTO suggestions (user_id, name, text) VALUES (?,?,?)",
-            (user_id, name or "", text))
+            "INSERT INTO suggestions (user_id, name, text, chat_id) VALUES (?,?,?,?)",
+            (user_id, name or "", text, chat_id or 0))
         return cur.lastrowid
 
 
 def get_suggestion(sid: int):
     with _LOCK, _connect() as conn:
         row = conn.execute(
-            "SELECT id, user_id, name, text, status FROM suggestions WHERE id=?",
+            "SELECT id, user_id, name, text, status, chat_id FROM suggestions WHERE id=?",
             (sid,)).fetchone()
         return dict(row) if row else None
 
