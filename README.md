@@ -21,6 +21,7 @@ All-in-one Telegram **group + inbox** bot (Python, `python-telegram-bot`).
 | 14 | Quiz game (+10) | `/quiz`, `/score` |
 | 15 | Weekly top members | `/top` |
 | 16 | Reminder | `/remind 10m\|2h <text>` (PM) |
+| 17 | PM ban (bot inbox only, not the group) | `/ban`, `/unban`, `/banned` (admin, PM — reply to a forwarded message or `/ban <user_id>`) |
 
 Admin checks are **native Telegram** (group admin/owner) — no `ADMIN_IDS` needed.
 
