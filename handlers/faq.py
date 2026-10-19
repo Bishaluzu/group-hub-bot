@@ -56,6 +56,8 @@ async def delfaq(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def faqs(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type == "private" and db.is_banned(update.effective_user.id):
+        return
     rows = db.list_faqs()
     if not rows:
         return await update.effective_message.reply_text("📭 কোনো FAQ নেই।")
