@@ -90,6 +90,19 @@ def init_db():
                 name      TEXT    NOT NULL DEFAULT '',
                 banned_at TEXT    NOT NULL DEFAULT ''
             );
+            CREATE TABLE IF NOT EXISTS countdown_milestones (
+                chat_id INTEGER NOT NULL,
+                at_min  INTEGER NOT NULL,
+                kind    TEXT    NOT NULL,
+                text    TEXT    NOT NULL DEFAULT '',
+                PRIMARY KEY (chat_id, at_min, kind)
+            );
+            CREATE TABLE IF NOT EXISTS known_users (
+                user_id  INTEGER PRIMARY KEY,
+                name     TEXT    NOT NULL DEFAULT '',
+                username TEXT    NOT NULL DEFAULT '',
+                seen_at  TEXT    NOT NULL DEFAULT ''
+            );
             """
         )
         for kw, reply in DEFAULT_FAQS:
@@ -359,5 +372,56 @@ def list_banned():
     with _LOCK, _connect() as conn:
         rows = conn.execute(
             "SELECT user_id, name FROM banned_users ORDER BY banned_at"
+        ).fetchall()
+        return [(r["user_id"], r["name"]) for r in rows]
+
+
+# ------------------------------------------------------ countdown milestones
+def set_milestone(chat_id: int, at_min: int, kind: str, text: str) -> None:
+    """kind: 'msg' (group post) or 'dm' (inbox DM)."""
+    with _LOCK, _connect() as conn:
+        conn.execute(
+            "INSERT INTO countdown_milestones (chat_id, at_min, kind, text) "
+            "VALUES (?,?,?,?) "
+            "ON CONFLICT(chat_id, at_min, kind) DO UPDATE SET text=excluded.text",
+            (chat_id, at_min, kind, text or ""),
+        )
+
+
+def list_milestones(chat_id: int):
+    with _LOCK, _connect() as conn:
+        rows = conn.execute(
+            "SELECT at_min, kind, text FROM countdown_milestones "
+            "WHERE chat_id=? ORDER BY at_min DESC",
+            (chat_id,),
+        ).fetchall()
+        return [(r["at_min"], r["kind"], r["text"]) for r in rows]
+
+
+def clear_milestones(chat_id: int) -> None:
+    with _LOCK, _connect() as conn:
+        conn.execute(
+            "DELETE FROM countdown_milestones WHERE chat_id=?", (chat_id,))
+
+
+# ------------------------------------------------------------ known users
+def touch_user(user_id: int, name: str = "", username: str = "") -> None:
+    """Remember a user for countdown inbox DMs. Cheap upsert."""
+    with _LOCK, _connect() as conn:
+        conn.execute(
+            "INSERT INTO known_users (user_id, name, username, seen_at) "
+            "VALUES (?,?,?,?) "
+            "ON CONFLICT(user_id) DO UPDATE SET "
+            "name=excluded.name, username=excluded.username, "
+            "seen_at=excluded.seen_at",
+            (user_id, name or "", username or "",
+             datetime.now(timezone.utc).isoformat(timespec="seconds")),
+        )
+
+
+def list_known_users():
+    with _LOCK, _connect() as conn:
+        rows = conn.execute(
+            "SELECT user_id, name FROM known_users ORDER BY seen_at"
         ).fetchall()
         return [(r["user_id"], r["name"]) for r in rows]
