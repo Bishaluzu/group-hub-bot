@@ -85,6 +85,8 @@ async def vote_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     res = db.vote(poll_id, q.from_user.id, idx)
     if res is None:
         return await q.answer("🔒 Poll বন্ধ।", show_alert=False)
+    db.touch_user(q.from_user.id, q.from_user.first_name or "",
+                  q.from_user.username or "")
     options, votes = res
     row = db.get_poll(poll_id)
     text = render_poll(row["question"], options, votes, True)
