@@ -1,5 +1,8 @@
 """Payment proof inbox: member sends photo/document in PM ->
-forwarded to the admin with Approve / Reject buttons."""
+forwarded to the admin with Approve / Reject buttons.
+
+Admin's own PM media: reply to a forwarded message -> routes to that member;
+fresh media -> posted to the bound group as announcement."""
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
@@ -7,7 +10,8 @@ from telegram.ext import (CallbackQueryHandler, ContextTypes, MessageHandler,
                           filters)
 
 import database as db
-from utils import is_admin_of, mention_html
+from utils import (admin_reply_back, is_admin_of, mention_html,
+                   post_announcement_media)
 
 
 async def proof_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -18,7 +22,26 @@ async def proof_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not chat_id or not admin_id:
         return
     if user.id == admin_id:
-        return  # admin's own media: ignore here
+        # reply to a forwarded member message -> route to that member
+        if await admin_reply_back(update, context):
+            return
+        # fresh media from admin -> post to group as announcement
+        try:
+            if msg.photo:
+                await post_announcement_media(
+                    context, chat_id, caption=msg.caption or "",
+                    photo=msg.photo[-1].file_id)
+            elif msg.document:
+                await post_announcement_media(
+                    context, chat_id, caption=msg.caption or "",
+                    document=msg.document.file_id)
+            else:
+                return
+        except Exception as e:
+            return await msg.reply_text(
+                f"❌ পোস্ট করা যায়নি: {e}\nবট গ্রুপে অ্যাডমিন আছে তো?")
+        await msg.reply_text("✅ ঘোষণা গ্রুপে পোস্ট হয়েছে।")
+        return
     name = user.first_name or "user"
     uname = f"@{user.username}" if user.username else "no username"
     markup = InlineKeyboardMarkup([[
