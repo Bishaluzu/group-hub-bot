@@ -7,6 +7,7 @@ Watcher groups (lower runs first):
 
 from . import (
     announce,
+    ban,
     countdown,
     faq,
     feedback,
@@ -24,5 +25,5 @@ from . import (
 
 def register_all(app):
     for module in (start, announce, faq, poll, schedule, keywords, proof,
-                   countdown, feedback, quiz, top, remind, reply):
+                   countdown, feedback, quiz, top, remind, reply, ban):
         module.register(app)
