@@ -249,12 +249,35 @@ async def _new_round(context, chat_id: int, user_id: int):
 
 
 # ------------------------------------------------------------------ commands
+async def _check_round_cd(context, chat_id: int, user_id: int) -> bool:
+    """1-minute cooldown shared by /truth18, the keyboard button and the
+    'new question' button. Sends the remaining-time warning (8s
+    auto-delete) and returns False when too early; records the tap and
+    returns True otherwise."""
+    now = time.time()
+    last = _NEW_CD.get((chat_id, user_id), 0)
+    if now - last < _NEW_CD_SEC:
+        remain = int(_NEW_CD_SEC - (now - last))
+        when = "1 মিনিট" if remain >= 60 else f"{remain} সেকেন্ড"
+        try:
+            warn = await context.bot.send_message(
+                chat_id, f"⏳ {when} পর ক্লিক করুন")
+            _schedule_delete_secs(context, chat_id, warn.message_id, 8)
+        except Exception:
+            pass
+        return False
+    _NEW_CD[(chat_id, user_id)] = now
+    return True
+
+
 async def truth18(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type == "private" and db.is_banned(
             update.effective_user.id):
         return
     user = update.effective_user
     db.touch_user(user.id, user.full_name, user.username or "")
+    if not await _check_round_cd(context, update.effective_chat.id, user.id):
+        return
     await _new_round(context, update.effective_chat.id, user.id)
 
 
@@ -266,6 +289,8 @@ async def keyboard_play(update: Update, context: ContextTypes.DEFAULT_TYPE):
         raise ApplicationHandlerStop()
     user = update.effective_user
     db.touch_user(user.id, user.full_name, user.username or "")
+    if not await _check_round_cd(context, update.effective_chat.id, user.id):
+        raise ApplicationHandlerStop()
     await _new_round(context, update.effective_chat.id, user.id)
     raise ApplicationHandlerStop()
 
@@ -589,23 +614,9 @@ async def truth_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _schedule_delete_secs(context, chat.id, prompt.message_id,
                               _PENDING_TTL)
         return
-    # new question — 60s cooldown per user per chat
-    now = time.time()
-    last = _NEW_CD.get((chat.id, tapper.id), 0)
-    if now - last < _NEW_CD_SEC:
-        remain = int(_NEW_CD_SEC - (now - last))
-        if remain >= 60:
-            when = "1 মিনিট"
-        else:
-            when = f"{remain} সেকেন্ড"
-        try:
-            warn = await context.bot.send_message(
-                chat.id, f"⏳ {when} পর ক্লিক করুন")
-            _schedule_delete_secs(context, chat.id, warn.message_id, 8)
-        except Exception:
-            pass
+    # new question — 60s cooldown per user per chat (shared helper)
+    if not await _check_round_cd(context, chat.id, tapper.id):
         return
-    _NEW_CD[(chat.id, tapper.id)] = now
     rnd = ROUNDS.get(rid)
     if tapper.id == owner_id and rnd:
         # old question + old video deleted, then fresh round
