@@ -97,6 +97,8 @@ _round_counter = 0
 # "🎲 নতুন প্রশ্ন" cooldown: (chat_id, user_id) -> last tap timestamp
 _NEW_CD = {}
 _NEW_CD_SEC = 60
+# orphan prompt auto-delete / pending expiry (2 minutes)
+_PENDING_TTL = 120
 
 
 def truth_keyboard():
@@ -114,9 +116,11 @@ def _clean(q: str) -> str:
 
 
 def get_pool():
-    """Built-in (minus hidden) + custom questions."""
+    """Built-in (minus hidden, plus overrides) + custom questions."""
     hidden = db.list_hidden_truths()
-    pool = [t for i, t in enumerate(BUILT_IN_TRUTHS) if i not in hidden]
+    overrides = db.get_truth_overrides()
+    pool = [overrides.get(i, t)
+            for i, t in enumerate(BUILT_IN_TRUTHS) if i not in hidden]
     pool.extend(t for _id, t in db.list_custom_truths())
     return pool
 
@@ -309,23 +313,37 @@ async def edittruth(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     raw = command_text(update)
     parts = raw.split(None, 1)
-    if len(parts) < 2 or not parts[0].isdigit():
+    if len(parts) < 2:
         return await update.effective_message.reply_text(
-            "ব্যবহার: /edittruth <id> <নতুন প্রশ্ন>")
-    if db.update_custom_truth(int(parts[0]), parts[1].strip()):
-        await update.effective_message.reply_text("✅ প্রশ্ন এডিট হয়েছে।")
-    else:
-        await update.effective_message.reply_text("❌ পাওয়া যায়নি।")
+            "ব্যবহার: /edittruth <id> <নতুন প্রশ্ন>\n"
+            "উদাহরণ: /edittruth 3 নতুন লেখা  |  /edittruth b5 নতুন লেখা")
+    target, new_text = parts[0], parts[1].strip()
+    m = re.fullmatch(r"b(\d+)", target, re.IGNORECASE)
+    if m:
+        idx = int(m.group(1)) - 1
+        if not (0 <= idx < len(BUILT_IN_TRUTHS)):
+            return await update.effective_message.reply_text(
+                f"❌ b1–b{len(BUILT_IN_TRUTHS)} এর মধ্যে দিন।")
+        db.set_truth_override(idx, new_text)
+        return await update.effective_message.reply_text(
+            f"✅ b{idx + 1} এডিট হয়েছে।")
+    if target.isdigit() and db.update_custom_truth(int(target), new_text):
+        return await update.effective_message.reply_text("✅ প্রশ্ন এডিট হয়েছে।")
+    await update.effective_message.reply_text("❌ পাওয়া যায়নি।")
 
 
 async def truthlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _admin_chat(update, context):
         return
     hidden = db.list_hidden_truths()
+    overrides = db.get_truth_overrides()
     lines = ["📝 <b>Truth প্রশ্ন (18+):</b>", "", "<b>Built-in:</b>"]
     for i, t in enumerate(BUILT_IN_TRUTHS):
         mark = " 🚫<i>লুকানো</i>" if i in hidden else ""
-        lines.append(f"b{i + 1}. {html.escape(_clean(t))}{mark}")
+        if i in overrides and i not in hidden:
+            mark += " ✏️<i>এডিটেড</i>"
+        shown = overrides.get(i, t) if i not in hidden else t
+        lines.append(f"b{i + 1}. {html.escape(_clean(shown))}{mark}")
     customs = db.list_custom_truths()
     lines.append("")
     lines.append("<b>Custom:</b>")
@@ -515,14 +533,17 @@ async def truth_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # suggest-a-question button: anyone (owner irrelevant)
         if chat.type == "private" and db.is_banned(tapper.id):
             return
-        PENDING[(chat.id, tapper.id)] = {"kind": "suggest"}
+        PENDING[(chat.id, tapper.id)] = {
+            "kind": "suggest",
+            "expires": time.time() + _PENDING_TTL}
         try:
             prompt = await q.message.reply_text(
                 "✍️ তোমার প্রশ্ন লিখে পাঠাও…")
         except Exception:
             return
         PENDING[(chat.id, tapper.id)]["prompt_msg_id"] = prompt.message_id
-        _schedule_delete(context, chat.id, prompt.message_id)
+        _schedule_delete_secs(context, chat.id, prompt.message_id,
+                              _PENDING_TTL)
         return
     kind, owner_id, rid = m.group(1), int(m.group(2)), int(m.group(3))
     if kind == "reply":
@@ -539,8 +560,10 @@ async def truth_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         PENDING[(chat.id, tapper.id)] = {
             "kind": "answer", "question": question,
-            "prompt_msg_id": prompt.message_id}
-        _schedule_delete(context, chat.id, prompt.message_id)
+            "prompt_msg_id": prompt.message_id,
+            "expires": time.time() + _PENDING_TTL}
+        _schedule_delete_secs(context, chat.id, prompt.message_id,
+                              _PENDING_TTL)
         return
     # new question — 60s cooldown per user per chat
     now = time.time()
@@ -624,6 +647,9 @@ async def answer_watcher(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 2) member pending action (answer or suggest) — last tap wins
     entry = PENDING.pop(key, None)
     if not entry:
+        return
+    # orphan prompt expired (2 min): ignore the late message
+    if entry.get("expires", 0) and time.time() > entry["expires"]:
         return
     if chat.type == "private" and db.is_banned(user.id):
         raise ApplicationHandlerStop()
