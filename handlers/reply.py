@@ -86,6 +86,9 @@ async def pm_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if db.is_banned(user.id):
         return
 
+    db.touch_user(user.id, user.first_name or "",
+                  getattr(user, "username", "") or "")
+
     chat_id, admin_id = db.get_bound()
 
     # Admin's own PM: replies route to members; fresh messages -> group announcement.
