@@ -279,7 +279,7 @@ async def deltruth(update: Update, context: ContextTypes.DEFAULT_TYPE):
         idx = int(m.group(1)) - 1
         if not (0 <= idx < len(BUILT_IN_TRUTHS)):
             return await update.effective_message.reply_text(
-                "❌ b1–b15 এর মধ্যে দিন।")
+                f"❌ b1–b{len(BUILT_IN_TRUTHS)} এর মধ্যে দিন।")
         if idx in db.list_hidden_truths():
             return await update.effective_message.reply_text(
                 f"ℹ️ b{idx + 1} ইতিমধ্যে লুকানো আছে।")
