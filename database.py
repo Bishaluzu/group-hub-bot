@@ -110,6 +110,10 @@ def init_db():
             CREATE TABLE IF NOT EXISTS hidden_truths (
                 idx INTEGER PRIMARY KEY
             );
+            CREATE TABLE IF NOT EXISTS truth_overrides (
+                idx  INTEGER PRIMARY KEY,
+                text TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS suggestions (
                 id      INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
@@ -493,6 +497,20 @@ def list_hidden_truths() -> set:
     with _LOCK, _connect() as conn:
         rows = conn.execute("SELECT idx FROM hidden_truths").fetchall()
         return {r["idx"] for r in rows}
+
+
+def set_truth_override(idx: int, text: str) -> None:
+    with _LOCK, _connect() as conn:
+        conn.execute(
+            "INSERT INTO truth_overrides (idx, text) VALUES (?,?) "
+            "ON CONFLICT(idx) DO UPDATE SET text=excluded.text",
+            (idx, text))
+
+
+def get_truth_overrides() -> dict:
+    with _LOCK, _connect() as conn:
+        rows = conn.execute("SELECT idx, text FROM truth_overrides").fetchall()
+        return {r["idx"]: r["text"] for r in rows}
 
 
 # ------------------------------------------------------------ suggestions
