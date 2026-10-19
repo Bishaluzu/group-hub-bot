@@ -24,6 +24,10 @@ All-in-one Telegram **group + inbox** bot (Python, `python-telegram-bot`).
 | 17 | PM ban (bot inbox only, not the group) | `/ban`, `/unban`, `/banned` (admin, PM — reply to a forwarded message or `/ban <user_id>`) |
 | 18 | Countdown milestones | `/cdmsg <min> \| <text>` → ঐ সময়ে গ্রুপে পোস্ট; `/cddm <min> \| <text>` → ঐ সময়ে সবার inbox-এ DM (button syntax `[label](url\|color)` চলে); `/cdmsg 0` / `/cddm 0` শেষে fire হয়; `/cdlist`, `/cdclear` |
 | 19 | Stop countdown | `/endcountdown` |
+| 20 | 18+ Truth game (dice) | `/truth18` বা নিচের permanent `🎲 18+ প্রশ্ন` button — dice animation → প্রশ্ন; `💬 Reply` → উত্তর দিলে প্রশ্ন+উত্তর একসাথে (mention সহ); `🎲 নতুন প্রশ্ন` → নতুন round |
+| 21 | Truth pool manage (admin) | `/settruth18 <প্রশ্ন>` যোগ; `/deltruth <id>` বা `/deltruth b<নম্বর>` (built-in লুকানো); `/edittruth <id> <নতুন>`; `/truthlist` তালিকা |
+| 22 | Suggest questions | `[➕ চাইলে নিজে একটা প্রশ্ন অ্যাড করো]` button (বা `/suggest <প্রশ্ন>`) → admin-এর inbox-এ ✅ Approve / ✏️ এডিট / ❌ Reject |
+| 23 | Game auto-delete timer | `/gametimer <সেকেন্ড\|off>` (admin) — default **off** |
 
 **Countdown inbox DMs** go to every user the bot has seen (group messages, PMs, poll votes, quiz answers).
 Telegram limit: a bot can only DM users who pressed `/start` on the bot — DMs silently skip everyone else (and banned users + the admin).
