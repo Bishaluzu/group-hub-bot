@@ -409,15 +409,17 @@ async def _notify_admin_suggestion(context, user, text: str, sid: int):
 
 async def _announce_approval(context, sug):
     """Post a group mention when a suggestion is approved, so the
-    suggester (who may never have /start'ed the bot) still sees it."""
+    suggester (who may never have /start'ed the bot) still sees it.
+    Auto-deletes after 5 seconds."""
     chat_id = (sug or {}).get("chat_id") or 0
     if chat_id >= 0:  # not a group
         return
     try:
-        await context.bot.send_message(
+        msg = await context.bot.send_message(
             chat_id,
             f"✅ {mention_html(sug['user_id'], sug['name'])}-এর প্রশ্ন যোগ হয়েছে! 🎉",
             parse_mode=ParseMode.HTML)
+        _schedule_delete_secs(context, chat_id, msg.message_id, 5)
     except Exception:
         pass
 
