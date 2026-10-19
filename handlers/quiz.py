@@ -59,6 +59,8 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     key = (q.message.chat_id, q.message.message_id)
     state = ACTIVE.get(key)
     uid = q.from_user.id
+    db.touch_user(uid, q.from_user.first_name or "",
+                  q.from_user.username or "")
     if state and uid in state["done"]:
         return await q.answer("তুমি আগেই উত্তর দিয়েছো!", show_alert=False)
     name = q.from_user.first_name or "user"
