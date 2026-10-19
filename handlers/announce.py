@@ -14,6 +14,7 @@ from telegram.ext import CommandHandler, ContextTypes
 import database as db
 from utils import (admin_in_group, command_text, post_announcement,
                    require_pm_admin)
+from .truth import truth_keyboard
 
 
 async def setgroup(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -31,7 +32,7 @@ async def setgroup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text(
             f"✅ <b>{title}</b> bind হয়েছে!\n"
             "এখন inbox-এ শুধু লিখলেই (বা /announce &lt;টেক্সট&gt;) এখানে পোস্ট হবে।",
-            parse_mode=ParseMode.HTML)
+            parse_mode=ParseMode.HTML, reply_markup=truth_keyboard())
     except Exception:
         pass
 
