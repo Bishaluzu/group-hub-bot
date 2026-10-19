@@ -22,9 +22,10 @@ from utils import (DHAKA, admin_in_group, command_text, extract_buttons,
 async def _send_job(context: ContextTypes.DEFAULT_TYPE):
     chat_id, text, prefix = context.job.data
     clean, markup = extract_buttons(text)
+    body = f"{prefix} {clean}".strip() if prefix else clean
     try:
         await context.bot.send_message(
-            chat_id, f"{prefix} {clean}", parse_mode=ParseMode.HTML,
+            chat_id, body, parse_mode=ParseMode.HTML,
             reply_markup=markup, disable_web_page_preview=True)
     except Exception:
         pass
@@ -36,7 +37,7 @@ def _arm(context, kind: str, chat_id: int, time_hhmm: str, text: str) -> bool:
     if not parsed or not getattr(context, "job_queue", None):
         return False
     hh, mm = parsed
-    prefix = "📢" if kind == "sched" else "🌅"
+    prefix = "" if kind == "sched" else "🌅"
     for job in context.job_queue.jobs():
         if job.name == f"{kind}_{chat_id}":
             job.schedule_removal()
