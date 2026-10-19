@@ -81,6 +81,11 @@ async def pm_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle every non-command PM. Group=1 so commands run first."""
     msg = update.effective_message
     user = update.effective_user
+
+    # Banned users are silently ignored — no forward, no FAQ, no AI.
+    if db.is_banned(user.id):
+        return
+
     chat_id, admin_id = db.get_bound()
 
     # Admin's own PM: replies route to members; fresh messages -> group announcement.
