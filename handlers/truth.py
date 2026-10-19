@@ -99,6 +99,8 @@ _NEW_CD = {}
 _NEW_CD_SEC = 60
 # orphan prompt auto-delete / pending expiry (2 minutes)
 _PENDING_TTL = 120
+# last round messages per chat: chat_id -> [question_msg_id, video_msg_id]
+_LAST_ROUND = {}
 
 
 def truth_keyboard():
@@ -222,12 +224,24 @@ async def _admin_chat(update, context) -> int:
     return update.effective_chat.id
 
 
-async def _new_round(context, chat_id: int, user_id: int):
-    """Small video -> question message with Reply / new-question buttons."""
+async def _new_round(context, chat_id: int, user_id: int,
+                     clean_previous: bool = False):
+    """Small video -> question message with Reply / new-question buttons.
+
+    clean_previous=True deletes this chat's last round messages first
+    (used by /truth18 and the keyboard button)."""
     pool = get_pool()
     if not pool:
         await context.bot.send_message(chat_id, "❌ প্রশ্নের তালিকা খালি।")
         return
+    if clean_previous:
+        for mid in _LAST_ROUND.get(chat_id, []):
+            if not mid:
+                continue
+            try:
+                await context.bot.delete_message(chat_id, mid)
+            except Exception:
+                pass
     vmsg = await _send_round_video(context, chat_id)
     _schedule_delete(context, chat_id,
                      vmsg.message_id if vmsg else 0)
@@ -245,7 +259,9 @@ async def _new_round(context, chat_id: int, user_id: int):
     qmsg = await context.bot.send_message(
         chat_id, f"{HEADER}\n🔞 {_clean(question)}",
         parse_mode=ParseMode.HTML, reply_markup=kb)
-    # Question stays until "🎲 নতুন প্রশ্ন" replaces it — never timer-deleted.
+    _LAST_ROUND[chat_id] = [qmsg.message_id,
+                            vmsg.message_id if vmsg else 0]
+    # Question stays until replaced — never timer-deleted.
 
 
 # ------------------------------------------------------------------ commands
@@ -278,7 +294,8 @@ async def truth18(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.touch_user(user.id, user.full_name, user.username or "")
     if not await _check_round_cd(context, update.effective_chat.id, user.id):
         return
-    await _new_round(context, update.effective_chat.id, user.id)
+    await _new_round(context, update.effective_chat.id, user.id,
+                     clean_previous=True)
 
 
 async def keyboard_play(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -289,9 +306,16 @@ async def keyboard_play(update: Update, context: ContextTypes.DEFAULT_TYPE):
         raise ApplicationHandlerStop()
     user = update.effective_user
     db.touch_user(user.id, user.full_name, user.username or "")
+    # the "🎲 18+ প্রশ্ন" tap text auto-deletes after 5 seconds
+    try:
+        _schedule_delete_secs(context, update.effective_chat.id,
+                              update.effective_message.message_id, 5)
+    except Exception:
+        pass
     if not await _check_round_cd(context, update.effective_chat.id, user.id):
         raise ApplicationHandlerStop()
-    await _new_round(context, update.effective_chat.id, user.id)
+    await _new_round(context, update.effective_chat.id, user.id,
+                     clean_previous=True)
     raise ApplicationHandlerStop()
 
 
