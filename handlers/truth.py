@@ -353,10 +353,25 @@ async def _notify_admin_suggestion(context, user, text: str, sid: int):
         pass
 
 
-async def _submit_suggestion(context, user, text: str):
+async def _announce_approval(context, sug):
+    """Post a group mention when a suggestion is approved, so the
+    suggester (who may never have /start'ed the bot) still sees it."""
+    chat_id = (sug or {}).get("chat_id") or 0
+    if chat_id >= 0:  # not a group
+        return
+    try:
+        await context.bot.send_message(
+            chat_id,
+            f"✅ {mention_html(sug['user_id'], sug['name'])}-এর প্রশ্ন যোগ হয়েছে! 🎉",
+            parse_mode=ParseMode.HTML)
+    except Exception:
+        pass
+
+
+async def _submit_suggestion(context, user, text: str, chat_id: int):
     """Store a suggestion and route it to the admin. Shared by the
     [➕ ...] button flow and /suggest."""
-    sid = db.add_suggestion(user.id, user.full_name, text)
+    sid = db.add_suggestion(user.id, user.full_name, text, chat_id)
     await _notify_admin_suggestion(context, user, text, sid)
     return sid
 
@@ -372,7 +387,7 @@ async def suggest(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "ব্যবহার: /suggest <তোমার প্রশ্ন>")
     user = update.effective_user
     db.touch_user(user.id, user.full_name, user.username or "")
-    await _submit_suggestion(context, user, text)
+    await _submit_suggestion(context, user, text, update.effective_chat.id)
     await update.effective_message.reply_text(
         "✅ তোমার প্রশ্ন পাঠানো হয়েছে, অ্যাডমিন approve করলে যোগ হবে।")
 
@@ -401,6 +416,7 @@ async def sug_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     uid, "✅ তোমার প্রশ্ন যোগ হয়েছে! 🎉")
             except Exception:
                 pass
+            await _announce_approval(context, sug)
         elif action == "no":
             if not db.set_suggestion_status(sid, "rejected"):
                 return await q.answer("ইতিমধ্যে সিদ্ধান্ত নেওয়া হয়েছে।")
@@ -550,6 +566,7 @@ async def answer_watcher(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     sug["user_id"], "✅ তোমার প্রশ্ন যোগ হয়েছে! 🎉")
             except Exception:
                 pass
+            await _announce_approval(context, sug)
             raise ApplicationHandlerStop()
 
     # 2) member pending action (answer or suggest) — last tap wins
@@ -562,7 +579,7 @@ async def answer_watcher(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if entry.get("kind") == "suggest":
         db.touch_user(user.id, user.full_name, user.username or "")
-        await _submit_suggestion(context, user, text)
+        await _submit_suggestion(context, user, text, chat.id)
         try:
             await context.bot.send_message(
                 chat.id,
