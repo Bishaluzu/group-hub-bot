@@ -13,6 +13,7 @@ import logging
 import os
 import random
 import re
+import time
 
 from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
                       KeyboardButton, ReplyKeyboardMarkup, Update)
@@ -94,6 +95,9 @@ PENDING = {}
 # (admin_pm_chat_id, admin_id) -> {"sid": int, "prompt_msg_id": int}
 PENDING_ADMIN_EDIT = {}
 _round_counter = 0
+# "🎲 নতুন প্রশ্ন" cooldown: (chat_id, user_id) -> last tap timestamp
+_NEW_CD = {}
+_NEW_CD_SEC = 60
 
 
 def truth_keyboard():
@@ -479,7 +483,17 @@ async def truth_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "prompt_msg_id": prompt.message_id}
         _schedule_delete(context, chat.id, prompt.message_id)
         return
-    # new question
+    # new question — 60s cooldown per user per chat
+    now = time.time()
+    last = _NEW_CD.get((chat.id, tapper.id), 0)
+    if now - last < _NEW_CD_SEC:
+        try:
+            await q.answer("⏳ একটু অপেক্ষা করো, 60 সেকেন্ড পর আবার চাপ দাও",
+                           show_alert=False)
+        except Exception:
+            pass
+        return
+    _NEW_CD[(chat.id, tapper.id)] = now
     rnd = ROUNDS.get(rid)
     if tapper.id == owner_id and rnd:
         try:
